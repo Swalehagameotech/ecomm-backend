@@ -16,20 +16,28 @@ exports.getFashion = async (req, res) => {
     
     // Filter by subcategory if provided (support both category and subcategory params)
     const filterValue = subcategory || category;
+    console.log(`🔍 Received params - subcategory: "${subcategory}", category: "${category}", filterValue: "${filterValue}"`);
+    
     if (filterValue) {
-      const categoryMap = {
-        'comfy': 'comfy',
-        'kurta': 'kurta',
-        'belt': 'belts',
+      const catLower = filterValue.toLowerCase().trim();
+      
+      // Map to the actual database subcategory values
+      const subcategoryMap = {
+        'kurta': 'kurtas',  // Database has "kurtas" (plural)
+        'kurtas': 'kurtas',
+        'scarf': 'scarfs',  // Database has "scarfs" (plural)
+        'scarfs': 'scarfs',
+        'belt': 'belts',    // Database has "belts" (plural)
         'belts': 'belts',
-        'scarf': 'scarf'
+        'comfy': 'comfy'    // Database has "comfy"
       };
       
-      const catLower = filterValue.toLowerCase().trim();
-      const subcategoryValue = categoryMap[catLower] || catLower;
-      // Use case-insensitive regex for flexible matching
-      query.subcategory = { $regex: `^${subcategoryValue}$`, $options: 'i' };
-      console.log(`🔍 Filtering by subcategory (case-insensitive): ${subcategoryValue} (from param: ${filterValue})`);
+      const dbSubcategory = subcategoryMap[catLower] || catLower;
+      
+      // Use exact match (case-insensitive) since we know the exact database values
+      query.subcategory = { $regex: `^${dbSubcategory}$`, $options: 'i' };
+      console.log(`🔍 Filtering by subcategory: "${catLower}" → database value: "${dbSubcategory}"`);
+      console.log(`🔍 Regex pattern: ^${dbSubcategory}$`);
     }
     
     // Search in name or description (combine with subcategory filter if both exist)
@@ -54,6 +62,33 @@ exports.getFashion = async (req, res) => {
     }
     
     console.log('🔍 Final query:', JSON.stringify(query, null, 2));
+    
+    // Debug: Check all unique subcategories in database
+    const uniqueSubcategories = await Fashion.distinct('subcategory');
+    console.log(`📋 All unique subcategories in database:`, uniqueSubcategories);
+    
+    // Debug: Check count for specific subcategory if filtering
+    if (filterValue) {
+      const catLower = filterValue.toLowerCase().trim();
+      const categoryMap = {
+        'comfy': 'comfy',
+        'kurta': 'kurtas',  // Map kurta to kurtas (plural in database)
+        'kurtas': 'kurtas',
+        'belt': 'belts',
+        'belts': 'belts',
+        'scarf': 'scarfs',  // Map scarf to scarfs (plural in database)
+        'scarfs': 'scarfs'
+      };
+      const subcategoryValue = categoryMap[catLower] || catLower;
+      const regexPattern = `^${subcategoryValue}$`;
+      const regexCount = await Fashion.countDocuments({ subcategory: { $regex: regexPattern, $options: 'i' } });
+      const exactCount = await Fashion.countDocuments({ subcategory: subcategoryValue });
+      const exactLowerCount = await Fashion.countDocuments({ subcategory: subcategoryValue.toLowerCase() });
+      console.log(`📊 Testing subcategory: ${subcategoryValue}`);
+      console.log(`📊 Products matching regex "^${subcategoryValue}$": ${regexCount}`);
+      console.log(`📊 Products with exact subcategory "${subcategoryValue}": ${exactCount}`);
+      console.log(`📊 Products with exact subcategory "${subcategoryValue.toLowerCase()}": ${exactLowerCount}`);
+    }
     
     const products = await Fashion.find(query)
       .limit(parseInt(limit))

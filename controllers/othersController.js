@@ -14,7 +14,22 @@ exports.getOthers = async (req, res) => {
     
     let query = {}; // Start with empty query
     
-    // Filter by subcategory if provided
+    // Filter by category if provided (parent categories like "skincare", "bags")
+    // This happens when user clicks on main category and wants to see all products from that category
+    if (category && !subcategory) {
+      const categoryLower = category.toLowerCase().trim();
+      if (categoryLower === 'skincare') {
+        // Show all skincare products (all child subcategories)
+        query.subcategory = { $in: ['cleanser', 'moisturizer', 'facewash', 'sunscreen'] };
+        console.log(`🔍 Filtering by category "skincare" - showing all skincare products`);
+      } else if (categoryLower === 'bags') {
+        // Show all bag products (all child subcategories) - handle both spellings
+        query.subcategory = { $in: ['cluthe', 'clutch', 'crossbody', 'tote_bag', 'tote bag'] };
+        console.log(`🔍 Filtering by category "bags" - showing all bag products`);
+      }
+    }
+    
+    // Filter by subcategory if provided (this takes priority over category)
     if (subcategory) {
       const subcategoryLower = subcategory.toLowerCase().trim();
       
@@ -59,16 +74,18 @@ exports.getOthers = async (req, res) => {
         console.log(`🔍 Filtering by skincare subcategory: ${subcategoryLower}`);
       } else {
         // Handle other direct subcategory matches
+        // Database has "perfume" (singular), not "perfumes"
         const subcategoryMap = {
-          'perfume': 'perfumes',
-          'perfumes': 'perfumes',
+          'perfume': 'perfume',  // Database has "perfume" (singular)
+          'perfumes': 'perfume', // Map plural input to singular database value
           'glasses': 'glasses'
         };
         const mappedSubcategory = subcategoryMap[subcategoryLower] || subcategoryLower;
         
-        // Since schema uses lowercase: true, use exact match with lowercase
-        query.subcategory = mappedSubcategory.toLowerCase();
-        console.log(`🔍 Filtering by subcategory (exact match): ${query.subcategory} (from param: ${subcategory})`);
+        // Use exact match (case-insensitive) for the mapped subcategory
+        query.subcategory = { $regex: `^${mappedSubcategory}$`, $options: 'i' };
+        console.log(`🔍 Filtering by subcategory: "${subcategoryLower}" → database value: "${mappedSubcategory}"`);
+        console.log(`🔍 Regex pattern: ^${mappedSubcategory}$`);
       }
     }
     
