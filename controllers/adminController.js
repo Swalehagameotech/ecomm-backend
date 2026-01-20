@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const Order = require('../models/Order');
 const DeletedProduct = require('../models/DeletedProduct');
+const Product = require('../models/Product');
 const NewArrival = require('../models/NewArrival');
 const Trending = require('../models/Trending');
 const Discount = require('../models/Discount');
@@ -16,7 +17,7 @@ const collectionMap = {
   fashion: Fashion,
   footwear: Footwear,
   others: Others,
-  accessories: Others, // Assuming accessories uses Others collection
+  accessories: Product, // Accessories uses Product collection
 };
 
 // Get dashboard statistics
@@ -111,15 +112,32 @@ exports.addProduct = async (req, res) => {
   try {
     const { category, ...productData } = req.body;
 
+    console.log('📦 Add Product Request:', { category, productData });
+
     if (!category || !collectionMap[category]) {
+      console.error('❌ Invalid category:', category);
       return res.status(400).json({
         success: false,
-        message: 'Invalid category',
+        message: `Invalid category: ${category}. Valid categories: ${Object.keys(collectionMap).join(', ')}`,
       });
     }
 
     const ProductModel = collectionMap[category];
-    const product = await ProductModel.create(productData);
+    console.log('📝 Using model:', ProductModel.modelName);
+    
+    // Filter out undefined/null/empty values
+    const cleanProductData = Object.fromEntries(
+      Object.entries(productData).filter(([_, value]) => value !== undefined && value !== null && value !== '')
+    );
+
+    // IMPORTANT: Add category back to productData since models require it
+    cleanProductData.category = category;
+
+    console.log('🧹 Cleaned product data:', cleanProductData);
+    
+    const product = await ProductModel.create(cleanProductData);
+
+    console.log('✅ Product created successfully:', product._id);
 
     res.status(201).json({
       success: true,
@@ -127,10 +145,16 @@ exports.addProduct = async (req, res) => {
       data: product,
     });
   } catch (error) {
-    console.error('Add product error:', error);
+    console.error('❌ Add product error:', error);
+    console.error('❌ Error details:', {
+      message: error.message,
+      name: error.name,
+      stack: error.stack
+    });
     res.status(500).json({
       success: false,
       message: error.message || 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     });
   }
 };

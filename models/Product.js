@@ -15,6 +15,10 @@ const productSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
+  discounted_price: {
+    type: Number,
+    min: 0
+  },
   image: {
     type: String,
     required: true
@@ -33,6 +37,21 @@ const productSchema = new mongoose.Schema({
     type: Number,
     default: 50,
     min: 0
+  },
+  brand_name: {
+    type: String
+  },
+  material: {
+    type: String
+  },
+  color: {
+    type: String
+  },
+  stars: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 5
   }
 }, {
   timestamps: true,
